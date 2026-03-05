@@ -2,7 +2,7 @@ import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 import { INDEX_FINGERTIP, PINCH_DISTANCE, s, THUMB_TIP } from './constants.ts';
 import { hand } from './state.ts';
 
-export async function createHandLandmarker(): Promise<HandLandmarker> {
+export async function createHandLandmarker(numHands: number): Promise<HandLandmarker> {
   const vision = await FilesetResolver.forVisionTasks(
     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
   );
@@ -13,7 +13,7 @@ export async function createHandLandmarker(): Promise<HandLandmarker> {
       delegate: 'GPU',
     },
     runningMode: 'VIDEO',
-    numHands: 1,
+    numHands,
   });
 }
 
@@ -44,6 +44,15 @@ export function detectHand(
     hand.landmarks = null;
     hand.visible = false;
   }
+
+  if (results.landmarks && results.landmarks.length > 1) {
+    hand.secondLandmarks = results.landmarks[1];
+    hand.secondVisible = true;
+  } else {
+    hand.secondLandmarks = null;
+    hand.secondVisible = false;
+  }
+
   return video.currentTime;
 }
 
@@ -54,11 +63,26 @@ export function isPinching(cw: number, ch: number): boolean {
   return Math.sqrt(dx * dx + dy * dy) < s(PINCH_DISTANCE);
 }
 
+export function isSecondPinching(cw: number, ch: number): boolean {
+  if (!hand.secondLandmarks) return false;
+  const dx = hand.secondLandmarks[THUMB_TIP].x * cw - hand.secondLandmarks[INDEX_FINGERTIP].x * cw;
+  const dy = hand.secondLandmarks[THUMB_TIP].y * ch - hand.secondLandmarks[INDEX_FINGERTIP].y * ch;
+  return Math.sqrt(dx * dx + dy * dy) < s(PINCH_DISTANCE);
+}
+
 export function getFingertipPos(cw: number, ch: number): { x: number; y: number } | null {
   if (!hand.landmarks) return null;
   return {
     x: hand.landmarks[INDEX_FINGERTIP].x * cw,
     y: hand.landmarks[INDEX_FINGERTIP].y * ch,
+  };
+}
+
+export function getSecondFingertipPos(cw: number, ch: number): { x: number; y: number } | null {
+  if (!hand.secondLandmarks) return null;
+  return {
+    x: hand.secondLandmarks[INDEX_FINGERTIP].x * cw,
+    y: hand.secondLandmarks[INDEX_FINGERTIP].y * ch,
   };
 }
 
@@ -73,4 +97,17 @@ export function updateVelocity(x: number, y: number, t: number) {
     }
   }
   hand.prevTip = { x, y, t };
+}
+
+export function updateSecondVelocity(x: number, y: number, t: number) {
+  if (hand.secondPrevTip) {
+    const dx = x - hand.secondPrevTip.x;
+    const dy = y - hand.secondPrevTip.y;
+    const dt = (t - hand.secondPrevTip.t) / 1000;
+    if (dt > 0) {
+      const raw = Math.sqrt(dx * dx + dy * dy) / dt;
+      hand.secondVelocity = hand.secondVelocity * 0.3 + raw * 0.7;
+    }
+  }
+  hand.secondPrevTip = { x, y, t };
 }

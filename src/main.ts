@@ -1,21 +1,33 @@
 import { initAudio, playWin } from './audio.ts';
 import { MAX_LIVES, initScale } from './constants.ts';
 import { checkColorBoxes, checkDurationBoxes, checkSlashing, getSpawnInterval, spawnWave, updateAllEntities, updateEffectsOnly } from './entities.ts';
-import { createHandLandmarker, detectHand, getFingertipPos, isPinching, startWebcam, updateVelocity } from './hand.ts';
 import {
+  createHandLandmarker,
+  detectHand,
+  getFingertipPos, getSecondFingertipPos,
+  isPinching, isSecondPinching,
+  startWebcam,
+  updateSecondVelocity,
+  updateVelocity,
+} from './hand.ts';
+import {
+  applyShake,
   clearCanvas,
   drawAllEntities,
   drawColorBoxes,
   drawEffectsOnly,
   drawEndScreen,
   drawFingertip,
+  drawFreezeOverlay,
   drawFrozenEntities,
   drawHandSkeleton,
   drawMenu, drawPauseOverlay,
+  drawSecondTrail,
   drawTrail,
   initRenderer,
+  resetShake,
 } from './renderer.ts';
-import { addTrailPoint, clearAll, game, hand, initColorBoxes, initDurationBoxes } from './state.ts';
+import { addSecondTrailPoint, addTrailPoint, clearAll, game, hand, initColorBoxes, initDurationBoxes, saveHighScore } from './state.ts';
 import './style.css';
 
 // --- DOM elements ---
@@ -56,7 +68,24 @@ function hideHUD() {
   hintEl.classList.remove('visible');
 }
 
+// --- Two-hand toggle box (in canvas coords) ---
+const TOGGLE_BOX = { y: 0.68, h: 0.08 }; // relative to canvas height
+
+function isInToggleArea(x: number, y: number): boolean {
+  const top = canvas.height * TOGGLE_BOX.y;
+  const bot = canvas.height * (TOGGLE_BOX.y + TOGGLE_BOX.h);
+  const left = canvas.width * 0.2;
+  const right = canvas.width * 0.8;
+  return x >= left && x <= right && y >= top && y <= bot;
+}
+
 // --- Game lifecycle ---
+let handLandmarker: Awaited<ReturnType<typeof createHandLandmarker>>;
+
+async function initHandLandmarker() {
+  handLandmarker = await createHandLandmarker(game.twoHands ? 2 : 1);
+}
+
 function startGame() {
   game.state = 'playing';
   game.score = 0;
@@ -75,12 +104,15 @@ function startGame() {
 }
 
 function goToMenu() {
+  if (game.state === 'win' || game.state === 'gameover') {
+    saveHighScore(game.score);
+  }
   game.state = 'menu';
   hideHUD();
   clearAll();
 }
 
-// --- Fingertip handling for a given state ---
+// --- Fingertip handling ---
 function handleFingertip(now: number, canSlash: boolean) {
   const pos = getFingertipPos(canvas.width, canvas.height);
   if (!pos) {
@@ -96,7 +128,32 @@ function handleFingertip(now: number, canSlash: boolean) {
   checkColorBoxes(pos.x, pos.y, pinching);
 
   if (canSlash && !pinching) {
-    checkSlashing(pos.x, pos.y);
+    checkSlashing(pos.x, pos.y, hand.velocity);
+  }
+
+  drawFingertip(pos.x, pos.y);
+}
+
+function handleSecondFingertip(now: number, canSlash: boolean) {
+  if (!game.twoHands || !hand.secondVisible) {
+    hand.secondPrevTip = null;
+    hand.secondVelocity = 0;
+    return;
+  }
+
+  const pos = getSecondFingertipPos(canvas.width, canvas.height);
+  if (!pos) {
+    hand.secondPrevTip = null;
+    hand.secondVelocity = 0;
+    return;
+  }
+
+  updateSecondVelocity(pos.x, pos.y, now);
+  addSecondTrailPoint(pos.x, pos.y, now);
+
+  const pinching = isSecondPinching(canvas.width, canvas.height);
+  if (canSlash && !pinching) {
+    checkSlashing(pos.x, pos.y, hand.secondVelocity);
   }
 
   drawFingertip(pos.x, pos.y);
@@ -105,10 +162,7 @@ function handleFingertip(now: number, canSlash: boolean) {
 // --- Main ---
 async function main() {
   await startWebcam(video);
-  
-  // Always render at 1280x720 minimum for crisp text/UI,
-  // regardless of webcam resolution. MediaPipe's normalized [0,1]
-  // coords map correctly since both video and canvas fill the same container.
+
   const RENDER_WIDTH = 1280;
   const RENDER_HEIGHT = 720;
   canvas.width = RENDER_WIDTH;
@@ -121,7 +175,10 @@ async function main() {
   initColorBoxes();
   initDurationBoxes(canvas.width, canvas.height);
 
+  await initHandLandmarker();
+
   let pauseTime = 0;
+  let pendingHandSwitch = false;
 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
@@ -145,7 +202,6 @@ async function main() {
     }
   });
 
-  const handLandmarker = await createHandLandmarker();
   let lastVideoTime = -1;
   let lastFrameTime = performance.now();
   let prevLives = game.lives;
@@ -157,13 +213,15 @@ async function main() {
 
     clearCanvas();
 
-    // Hand detection (runs every new video frame, persists across render frames)
+    // Apply screen shake
+    applyShake();
+
+    // Hand detection
     lastVideoTime = detectHand(handLandmarker, video, now, lastVideoTime);
 
-    // Hand skeleton (always visible)
-    if (hand.visible && hand.landmarks) {
-      drawHandSkeleton(hand.landmarks);
-    }
+    // Hand skeletons
+    if (hand.visible && hand.landmarks) drawHandSkeleton(hand.landmarks);
+    if (game.twoHands && hand.secondVisible && hand.secondLandmarks) drawHandSkeleton(hand.secondLandmarks);
 
     // --- State machine ---
     switch (game.state) {
@@ -176,6 +234,15 @@ async function main() {
           if (pos) {
             const pinching = isPinching(canvas.width, canvas.height);
             checkColorBoxes(pos.x, pos.y, pinching);
+
+            // Two-hand toggle
+            if (pinching && isInToggleArea(pos.x, pos.y) && !pendingHandSwitch) {
+              pendingHandSwitch = true;
+              game.twoHands = !game.twoHands;
+              initHandLandmarker(); // re-init with new numHands
+            }
+            if (!pinching) pendingHandSwitch = false;
+
             if (checkDurationBoxes(pos.x, pos.y, pinching)) {
               startGame();
             }
@@ -186,7 +253,6 @@ async function main() {
       }
 
       case 'playing': {
-        // Timer
         const elapsed = (now - game.gameStartTime) / 1000;
         game.timeRemaining = Math.max(0, game.gameDuration - elapsed);
         const mins = Math.floor(game.timeRemaining / 60);
@@ -195,36 +261,36 @@ async function main() {
 
         if (game.timeRemaining <= 0) {
           game.state = 'win';
+          saveHighScore(game.score);
           hideHUD();
           playWin();
           break;
         }
 
-        // Spawn (interval scales with difficulty)
         if (now - game.lastSpawnTime > getSpawnInterval()) {
           spawnWave(canvas.width, canvas.height);
           game.lastSpawnTime = now;
         }
 
-        // Fingertip + slashing
         handleFingertip(now, true);
+        handleSecondFingertip(now, true);
 
-        // Update + draw
         updateAllEntities(dt, canvas.height);
         drawAllEntities();
         drawTrail();
+        if (game.twoHands) drawSecondTrail();
+        drawFreezeOverlay();
         drawColorBoxes();
 
-        // Sync HUD
         scoreEl.textContent = `Score: ${game.score}`;
         velocityEl.textContent = `Velocity: ${Math.round(hand.velocity)} px/s`;
 
-        // Check if lives changed (bomb hit may trigger gameover)
         if (game.lives !== prevLives) {
           syncLivesHUD();
           prevLives = game.lives;
         }
         if ((game.state as string) === 'gameover') {
+          saveHighScore(game.score);
           hideHUD();
         }
         break;
@@ -235,7 +301,6 @@ async function main() {
         drawColorBoxes();
         drawPauseOverlay();
 
-        // Allow color changing while paused
         if (hand.visible && hand.landmarks) {
           const pos = getFingertipPos(canvas.width, canvas.height);
           if (pos) {
@@ -261,6 +326,9 @@ async function main() {
         break;
       }
     }
+
+    // Reset shake transform at end of frame
+    resetShake();
 
     requestAnimationFrame(loop);
   }

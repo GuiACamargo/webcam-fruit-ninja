@@ -4,6 +4,8 @@ export interface Point {
   t: number;
 }
 
+export type FruitKind = 'normal' | 'golden' | 'freeze';
+
 export interface Fruit {
   x: number;
   y: number;
@@ -14,6 +16,7 @@ export interface Fruit {
   sliced: boolean;
   angle: number;
   angularVel: number;
+  kind: FruitKind;
 }
 
 export interface Bomb {
@@ -58,6 +61,15 @@ export interface Explosion {
   age: number;
   maxAge: number;
   maxRadius: number;
+}
+
+export interface FloatingText {
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  age: number;
+  maxAge: number;
 }
 
 export interface ColorBox {

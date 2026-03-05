@@ -18,6 +18,20 @@ export const MIN_SLASH_VELOCITY = 400;
 export const BOMB_RADIUS = 42;
 export const PINCH_DISTANCE = 40;
 
+// Combo
+export const COMBO_WINDOW_MS = 800; // max ms between slices to keep combo
+export const COMBO_MIN = 3;         // minimum streak to show combo text
+
+// Special fruit chances
+export const GOLDEN_CHANCE = 0.08;  // 8% of fruits are golden
+export const FREEZE_CHANCE = 0.05;  // 5% of fruits are freeze
+export const GOLDEN_POINTS = 5;
+export const FREEZE_DURATION = 2000; // ms
+
+// Screen shake
+export const SHAKE_INTENSITY = 12;  // max px offset
+export const SHAKE_DURATION = 300;  // ms
+
 export const FRUIT_COLORS = [
   '#e74c3c', '#f39c12', '#2ecc71',
   '#9b59b6', '#e67e22', '#f1c40f',

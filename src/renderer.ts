@@ -1,12 +1,14 @@
-import { HAND_CONNECTIONS, TRAIL_FADE_MS, s } from './constants.ts';
-import { colorBoxes, durationBoxes, entities, game, trail } from './state.ts';
-import type { Bomb, Explosion, Fruit, FruitHalf, Particle } from './types.ts';
+import { HAND_CONNECTIONS, SHAKE_DURATION, SHAKE_INTENSITY, TRAIL_FADE_MS, s } from './constants.ts';
+import { colorBoxes, durationBoxes, entities, freeze, game, getHighScore, secondTrail, shake, trail } from './state.ts';
+import type { Bomb, Explosion, FloatingText, Fruit, FruitHalf, Particle } from './types.ts';
 
 let ctx: CanvasRenderingContext2D;
+let canvasEl: HTMLCanvasElement;
 let canvasWidth: number;
 let canvasHeight: number;
 
 export function initRenderer(canvas: HTMLCanvasElement) {
+  canvasEl = canvas;
   ctx = canvas.getContext('2d')!;
   canvasWidth = canvas.width;
   canvasHeight = canvas.height;
@@ -27,6 +29,36 @@ function withFlippedText(fn: () => void) {
   ctx.scale(-1, 1);
   fn();
   ctx.restore();
+}
+
+// --- Screen shake ---
+
+export function applyShake() {
+  if (!shake.active) return;
+  const elapsed = performance.now() - shake.startTime;
+  if (elapsed > SHAKE_DURATION) {
+    shake.active = false;
+    return;
+  }
+  const decay = 1 - elapsed / SHAKE_DURATION;
+  const ox = (Math.random() - 0.5) * 2 * s(SHAKE_INTENSITY) * decay;
+  const oy = (Math.random() - 0.5) * 2 * s(SHAKE_INTENSITY) * decay;
+  ctx.translate(ox, oy);
+}
+
+export function resetShake() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// --- Freeze overlay tint ---
+
+export function drawFreezeOverlay() {
+  if (!freeze.active) return;
+  const remaining = freeze.endTime - performance.now();
+  if (remaining <= 0) return;
+  const alpha = Math.min(0.15, remaining / 2000 * 0.15);
+  ctx.fillStyle = `rgba(0, 200, 255, ${alpha})`;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 }
 
 // --- Hand skeleton ---
@@ -63,20 +95,20 @@ export function drawFingertip(x: number, y: number) {
   ctx.stroke();
 }
 
-export function drawTrail() {
-  if (trail.length < 2) return;
+function drawTrailArray(trailArr: typeof trail) {
+  if (trailArr.length < 2) return;
 
   const now = performance.now();
   const rgb = hexToRgb(game.activeColor);
 
-  for (let i = 1; i < trail.length; i++) {
-    const age = now - trail[i].t;
+  for (let i = 1; i < trailArr.length; i++) {
+    const age = now - trailArr[i].t;
     const alpha = Math.max(0, 1 - age / TRAIL_FADE_MS);
     if (alpha <= 0) continue;
 
     ctx.beginPath();
-    ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
-    ctx.lineTo(trail[i].x, trail[i].y);
+    ctx.moveTo(trailArr[i - 1].x, trailArr[i - 1].y);
+    ctx.lineTo(trailArr[i].x, trailArr[i].y);
     ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
     ctx.lineWidth = s(alpha * 6 + 2);
     ctx.lineCap = 'round';
@@ -84,8 +116,11 @@ export function drawTrail() {
   }
 
   const cutoff = now - TRAIL_FADE_MS;
-  while (trail.length > 0 && trail[0].t < cutoff) trail.shift();
+  while (trailArr.length > 0 && trailArr[0].t < cutoff) trailArr.shift();
 }
+
+export function drawTrail() { drawTrailArray(trail); }
+export function drawSecondTrail() { drawTrailArray(secondTrail); }
 
 // --- Game entities ---
 
@@ -94,16 +129,50 @@ export function drawFruit(f: Fruit) {
   ctx.translate(f.x, f.y);
   ctx.rotate(f.angle);
 
+  // Golden glow
+  if (f.kind === 'golden') {
+    ctx.beginPath();
+    ctx.arc(0, 0, f.radius * 1.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+    ctx.fill();
+  }
+
+  // Freeze glow
+  if (f.kind === 'freeze') {
+    ctx.beginPath();
+    ctx.arc(0, 0, f.radius * 1.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 207, 255, 0.2)';
+    ctx.fill();
+  }
+
   ctx.beginPath();
   ctx.arc(0, 0, f.radius, 0, Math.PI * 2);
   ctx.fillStyle = f.color;
   ctx.fill();
 
-  // Highlight (rotates with the fruit)
+  // Highlight
   ctx.beginPath();
   ctx.arc(-f.radius * 0.25, -f.radius * 0.25, f.radius * 0.5, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
   ctx.fill();
+
+  // Star icon for golden
+  if (f.kind === 'golden') {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = `${f.radius * 0.8}px Segoe UI, Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u2605', 0, 0);
+  }
+
+  // Snowflake icon for freeze
+  if (f.kind === 'freeze') {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.font = `${f.radius * 0.8}px Segoe UI, Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u2744', 0, 0);
+  }
 
   ctx.restore();
 }
@@ -113,7 +182,6 @@ export function drawBomb(b: Bomb) {
   ctx.translate(b.x, b.y);
   ctx.rotate(b.angle);
 
-  // Body
   ctx.beginPath();
   ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
   ctx.fillStyle = '#1a1a1a';
@@ -122,13 +190,11 @@ export function drawBomb(b: Bomb) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Highlight
   ctx.beginPath();
   ctx.arc(-b.radius * 0.3, -b.radius * 0.3, b.radius * 0.3, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
   ctx.fill();
 
-  // Fuse
   const fsx = b.radius * 0.5;
   const fsy = -b.radius * 0.7;
   const fex = fsx + s(12);
@@ -141,7 +207,6 @@ export function drawBomb(b: Bomb) {
   ctx.lineWidth = 3;
   ctx.stroke();
 
-  // Spark
   const ss = s(4 + Math.sin(b.fuse) * 2);
   ctx.beginPath();
   ctx.arc(fex, fey, ss, 0, Math.PI * 2);
@@ -153,7 +218,6 @@ export function drawBomb(b: Bomb) {
   ctx.fillStyle = 'rgba(255, 150, 0, 0.3)';
   ctx.fill();
 
-  // Danger mark
   const ms = b.radius * 0.35;
   ctx.strokeStyle = '#cc0000';
   ctx.lineWidth = 3;
@@ -221,6 +285,29 @@ export function drawParticle(p: Particle) {
   ctx.globalAlpha = 1;
 }
 
+export function drawFloatingText(ft: FloatingText) {
+  const alpha = Math.max(0, 1 - ft.age / ft.maxAge);
+  const scale = 1 + ft.age * 0.3;
+
+  ctx.save();
+  // Flip so text reads correctly
+  ctx.translate(canvasWidth, 0);
+  ctx.scale(-1, 1);
+
+  const screenX = canvasWidth - ft.x; // mirror x
+  ctx.globalAlpha = alpha;
+  ctx.font = `bold ${s(28 * scale)}px Segoe UI, Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.lineWidth = s(3);
+  ctx.strokeText(ft.text, screenX, ft.y);
+  ctx.fillStyle = ft.color;
+  ctx.fillText(ft.text, screenX, ft.y);
+
+  ctx.restore();
+}
+
 // --- Batch draw helpers ---
 
 export function drawAllEntities() {
@@ -229,12 +316,14 @@ export function drawAllEntities() {
   for (const h of entities.fruitHalves) drawHalf(h);
   for (const p of entities.particles) drawParticle(p);
   for (const e of entities.explosions) drawExplosion(e);
+  for (const ft of entities.floatingTexts) drawFloatingText(ft);
 }
 
 export function drawEffectsOnly() {
   for (const h of entities.fruitHalves) drawHalf(h);
   for (const p of entities.particles) drawParticle(p);
   for (const e of entities.explosions) drawExplosion(e);
+  for (const ft of entities.floatingTexts) drawFloatingText(ft);
 }
 
 export function drawFrozenEntities() {
@@ -280,11 +369,19 @@ export function drawMenu() {
     ctx.font = `bold ${s(80)}px Segoe UI, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('FRUIT NINJA', canvasWidth / 2, canvasHeight * 0.25);
+    ctx.fillText('FRUIT NINJA', canvasWidth / 2, canvasHeight * 0.18);
+
+    // High score
+    const hs = getHighScore();
+    if (hs > 0) {
+      ctx.font = `${s(22)}px Segoe UI, Arial, sans-serif`;
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
+      ctx.fillText(`High Score: ${hs}`, canvasWidth / 2, canvasHeight * 0.27);
+    }
 
     ctx.font = `${s(28)}px Segoe UI, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.fillText('Pinch to select game duration', canvasWidth / 2, canvasHeight * 0.42);
+    ctx.fillText('Pinch to select game duration', canvasWidth / 2, canvasHeight * 0.38);
 
     for (const box of durationBoxes) {
       const dx = canvasWidth - box.x - box.w;
@@ -301,9 +398,19 @@ export function drawMenu() {
       ctx.fillText(box.label, dx + box.w / 2, box.y + box.h / 2);
     }
 
-    ctx.font = `${s(20)}px Segoe UI, Arial, sans-serif`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.fillText('Pick trail color by pinching on the color boxes (top right)', canvasWidth / 2, canvasHeight * 0.82);
+    // Two-hand toggle
+    const toggleY = canvasHeight * 0.72;
+    ctx.font = `${s(24)}px Segoe UI, Arial, sans-serif`;
+    ctx.fillStyle = game.twoHands ? 'rgba(0, 255, 100, 0.9)' : 'rgba(255, 255, 255, 0.6)';
+    ctx.fillText(
+      game.twoHands ? '\u2714 Two-Hand Mode (pinch to toggle)' : 'One-Hand Mode (pinch to toggle)',
+      canvasWidth / 2,
+      toggleY,
+    );
+
+    ctx.font = `${s(18)}px Segoe UI, Arial, sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillText('Pick trail color by pinching on the color boxes (top right)', canvasWidth / 2, canvasHeight * 0.85);
   });
 }
 
@@ -333,14 +440,21 @@ export function drawEndScreen(title: string) {
     ctx.font = `bold ${s(80)}px Segoe UI, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(title, canvasWidth / 2, canvasHeight / 2 - s(40));
+    ctx.fillText(title, canvasWidth / 2, canvasHeight / 2 - s(50));
 
     ctx.font = `${s(40)}px Segoe UI, Arial, sans-serif`;
-    ctx.fillText(`Final Score: ${game.score}`, canvasWidth / 2, canvasHeight / 2 + s(40));
+    ctx.fillText(`Final Score: ${game.score}`, canvasWidth / 2, canvasHeight / 2 + s(20));
+
+    const hs = getHighScore();
+    if (game.score >= hs && game.score > 0) {
+      ctx.fillStyle = '#ffd700';
+      ctx.font = `bold ${s(28)}px Segoe UI, Arial, sans-serif`;
+      ctx.fillText('NEW HIGH SCORE!', canvasWidth / 2, canvasHeight / 2 + s(65));
+    }
 
     ctx.font = `${s(24)}px Segoe UI, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText('Press SPACE to restart', canvasWidth / 2, canvasHeight / 2 + s(100));
+    ctx.fillText('Press SPACE to continue', canvasWidth / 2, canvasHeight / 2 + s(110));
   });
 }
 
