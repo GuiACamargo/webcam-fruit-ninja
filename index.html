@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/apple.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fruit Ninja</title>
+  </head>
+  <body>
+    <div id="game-container">
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="game-canvas"></canvas>
+      <div id="hud">
+        <div id="hud-top">
+          <div id="score">Score: 0</div>
+          <div id="lives"></div>
+        </div>
+        <div id="velocity">Velocity: 0</div>
+      </div>
+      <div id="timer"></div>
+      <div id="hint">SPACE to pause</div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
