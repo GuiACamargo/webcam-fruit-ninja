@@ -50,6 +50,8 @@ export function spawnFruit(canvasW: number, canvasH: number) {
     radius,
     color,
     sliced: false,
+    angle: Math.random() * Math.PI * 2,
+    angularVel: (Math.random() - 0.5) * 8,
   });
 }
 
@@ -66,6 +68,8 @@ export function spawnBomb(canvasW: number, canvasH: number) {
     radius: r,
     hit: false,
     fuse: 0,
+    angle: Math.random() * Math.PI * 2,
+    angularVel: (Math.random() - 0.5) * 6,
   });
 }
 
@@ -167,6 +171,7 @@ export function updateFruits(dt: number, canvasH: number) {
     f.x += f.vx * dt;
     f.y += f.vy * dt;
     f.vy += gravity * dt;
+    f.angle += f.angularVel * dt;
     if (f.y > canvasH + f.radius * 2 || f.sliced) entities.fruits.splice(i, 1);
   }
 }
@@ -179,6 +184,7 @@ export function updateBombs(dt: number, canvasH: number) {
     b.y += b.vy * dt;
     b.vy += gravity * dt;
     b.fuse += dt * 10;
+    b.angle += b.angularVel * dt;
     if (b.y > canvasH + b.radius * 2 || b.hit) entities.bombs.splice(i, 1);
   }
 }

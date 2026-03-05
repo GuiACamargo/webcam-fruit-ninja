@@ -32,7 +32,8 @@ function withFlippedText(fn: () => void) {
 // --- Hand skeleton ---
 
 export function drawHandSkeleton(landmarks: { x: number; y: number; z: number }[]) {
-  ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+  const rgb = hexToRgb(game.activeColor);
+  ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`;
   ctx.lineWidth = 2;
   for (const [a, b] of HAND_CONNECTIONS) {
     ctx.beginPath();
@@ -41,7 +42,7 @@ export function drawHandSkeleton(landmarks: { x: number; y: number; z: number }[
     ctx.stroke();
   }
 
-  ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
+  ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.4)`;
   for (const lm of landmarks) {
     ctx.beginPath();
     ctx.arc(lm.x * canvasWidth, lm.y * canvasHeight, s(4), 0, Math.PI * 2);
@@ -89,21 +90,32 @@ export function drawTrail() {
 // --- Game entities ---
 
 export function drawFruit(f: Fruit) {
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.rotate(f.angle);
+
   ctx.beginPath();
-  ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
+  ctx.arc(0, 0, f.radius, 0, Math.PI * 2);
   ctx.fillStyle = f.color;
   ctx.fill();
 
+  // Highlight (rotates with the fruit)
   ctx.beginPath();
-  ctx.arc(f.x - f.radius * 0.25, f.y - f.radius * 0.25, f.radius * 0.5, 0, Math.PI * 2);
+  ctx.arc(-f.radius * 0.25, -f.radius * 0.25, f.radius * 0.5, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
   ctx.fill();
+
+  ctx.restore();
 }
 
 export function drawBomb(b: Bomb) {
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(b.angle);
+
   // Body
   ctx.beginPath();
-  ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+  ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
   ctx.fillStyle = '#1a1a1a';
   ctx.fill();
   ctx.strokeStyle = '#444';
@@ -112,13 +124,13 @@ export function drawBomb(b: Bomb) {
 
   // Highlight
   ctx.beginPath();
-  ctx.arc(b.x - b.radius * 0.3, b.y - b.radius * 0.3, b.radius * 0.3, 0, Math.PI * 2);
+  ctx.arc(-b.radius * 0.3, -b.radius * 0.3, b.radius * 0.3, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
   ctx.fill();
 
   // Fuse
-  const fsx = b.x + b.radius * 0.5;
-  const fsy = b.y - b.radius * 0.7;
+  const fsx = b.radius * 0.5;
+  const fsy = -b.radius * 0.7;
   const fex = fsx + s(12);
   const fey = fsy - s(16);
 
@@ -147,11 +159,13 @@ export function drawBomb(b: Bomb) {
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(b.x - ms, b.y - ms);
-  ctx.lineTo(b.x + ms, b.y + ms);
-  ctx.moveTo(b.x + ms, b.y - ms);
-  ctx.lineTo(b.x - ms, b.y + ms);
+  ctx.moveTo(-ms, -ms);
+  ctx.lineTo(ms, ms);
+  ctx.moveTo(ms, -ms);
+  ctx.lineTo(-ms, ms);
   ctx.stroke();
+
+  ctx.restore();
 }
 
 export function drawExplosion(e: Explosion) {

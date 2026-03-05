@@ -12,6 +12,8 @@ export interface Fruit {
   radius: number;
   color: string;
   sliced: boolean;
+  angle: number;
+  angularVel: number;
 }
 
 export interface Bomb {
@@ -22,6 +24,8 @@ export interface Bomb {
   radius: number;
   hit: boolean;
   fuse: number;
+  angle: number;
+  angularVel: number;
 }
 
 export interface FruitHalf {
