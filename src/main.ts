@@ -105,8 +105,14 @@ function handleFingertip(now: number, canSlash: boolean) {
 // --- Main ---
 async function main() {
   await startWebcam(video);
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  
+  // Always render at 1280x720 minimum for crisp text/UI,
+  // regardless of webcam resolution. MediaPipe's normalized [0,1]
+  // coords map correctly since both video and canvas fill the same container.
+  const RENDER_WIDTH = 1280;
+  const RENDER_HEIGHT = 720;
+  canvas.width = RENDER_WIDTH;
+  canvas.height = RENDER_HEIGHT;
 
   initScale(canvas.height);
   initRenderer(canvas);
