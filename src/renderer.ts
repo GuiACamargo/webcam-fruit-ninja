@@ -1,4 +1,4 @@
-import { HAND_CONNECTIONS, TRAIL_FADE_MS } from './constants.ts';
+import { HAND_CONNECTIONS, TRAIL_FADE_MS, s } from './constants.ts';
 import { colorBoxes, durationBoxes, entities, game, trail } from './state.ts';
 import type { Bomb, Explosion, Fruit, FruitHalf, Particle } from './types.ts';
 
@@ -44,7 +44,7 @@ export function drawHandSkeleton(landmarks: { x: number; y: number; z: number }[
   ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
   for (const lm of landmarks) {
     ctx.beginPath();
-    ctx.arc(lm.x * canvasWidth, lm.y * canvasHeight, 4, 0, Math.PI * 2);
+    ctx.arc(lm.x * canvasWidth, lm.y * canvasHeight, s(4), 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -54,7 +54,7 @@ export function drawHandSkeleton(landmarks: { x: number; y: number; z: number }[
 export function drawFingertip(x: number, y: number) {
   const rgb = hexToRgb(game.activeColor);
   ctx.beginPath();
-  ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.arc(x, y, s(10), 0, Math.PI * 2);
   ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.7)`;
   ctx.fill();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
@@ -77,7 +77,7 @@ export function drawTrail() {
     ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
     ctx.lineTo(trail[i].x, trail[i].y);
     ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-    ctx.lineWidth = alpha * 6 + 2;
+    ctx.lineWidth = s(alpha * 6 + 2);
     ctx.lineCap = 'round';
     ctx.stroke();
   }
@@ -119,25 +119,25 @@ export function drawBomb(b: Bomb) {
   // Fuse
   const fsx = b.x + b.radius * 0.5;
   const fsy = b.y - b.radius * 0.7;
-  const fex = fsx + 12;
-  const fey = fsy - 16;
+  const fex = fsx + s(12);
+  const fey = fsy - s(16);
 
   ctx.beginPath();
   ctx.moveTo(fsx, fsy);
-  ctx.quadraticCurveTo(fsx + 8, fsy - 4, fex, fey);
+  ctx.quadraticCurveTo(fsx + s(8), fsy - s(4), fex, fey);
   ctx.strokeStyle = '#8B4513';
   ctx.lineWidth = 3;
   ctx.stroke();
 
   // Spark
-  const ss = 4 + Math.sin(b.fuse) * 2;
+  const ss = s(4 + Math.sin(b.fuse) * 2);
   ctx.beginPath();
   ctx.arc(fex, fey, ss, 0, Math.PI * 2);
   ctx.fillStyle = Math.sin(b.fuse * 2) > 0 ? '#ff4500' : '#ffcc00';
   ctx.fill();
 
   ctx.beginPath();
-  ctx.arc(fex, fey, ss + 4, 0, Math.PI * 2);
+  ctx.arc(fex, fey, ss + s(4), 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255, 150, 0, 0.3)';
   ctx.fill();
 
@@ -162,7 +162,7 @@ export function drawExplosion(e: Explosion) {
   ctx.beginPath();
   ctx.arc(e.x, e.y, radius, 0, Math.PI * 2);
   ctx.strokeStyle = `rgba(255, 100, 0, ${alpha * 0.8})`;
-  ctx.lineWidth = 8 * (1 - progress);
+  ctx.lineWidth = s(8) * (1 - progress);
   ctx.stroke();
 
   const ir = radius * 0.5;
@@ -238,17 +238,17 @@ export function drawColorBoxes() {
 
       ctx.fillStyle = box.fillRgba;
       ctx.strokeStyle = box.borderColor;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = s(3);
       ctx.beginPath();
-      ctx.roundRect(dx, box.y, box.w, box.h, 8);
+      ctx.roundRect(dx, box.y, box.w, box.h, s(8));
       ctx.fill();
       ctx.stroke();
 
       if (game.activeColor === box.color) {
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = s(2);
         ctx.beginPath();
-        ctx.roundRect(dx + 4, box.y + 4, box.w - 8, box.h - 8, 5);
+        ctx.roundRect(dx + s(4), box.y + s(4), box.w - s(8), box.h - s(8), s(5));
         ctx.stroke();
       }
     }
@@ -263,12 +263,12 @@ export function drawMenu() {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 80px Segoe UI, Arial, sans-serif';
+    ctx.font = `bold ${s(80)}px Segoe UI, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('FRUIT NINJA', canvasWidth / 2, canvasHeight * 0.25);
 
-    ctx.font = '28px Segoe UI, Arial, sans-serif';
+    ctx.font = `${s(28)}px Segoe UI, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.fillText('Pinch to select game duration', canvasWidth / 2, canvasHeight * 0.42);
 
@@ -276,18 +276,18 @@ export function drawMenu() {
       const dx = canvasWidth - box.x - box.w;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = s(3);
       ctx.beginPath();
-      ctx.roundRect(dx, box.y, box.w, box.h, 12);
+      ctx.roundRect(dx, box.y, box.w, box.h, s(12));
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 36px Segoe UI, Arial, sans-serif';
+      ctx.font = `bold ${s(36)}px Segoe UI, Arial, sans-serif`;
       ctx.fillText(box.label, dx + box.w / 2, box.y + box.h / 2);
     }
 
-    ctx.font = '20px Segoe UI, Arial, sans-serif';
+    ctx.font = `${s(20)}px Segoe UI, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.fillText('Pick trail color by pinching on the color boxes (top right)', canvasWidth / 2, canvasHeight * 0.82);
   });
@@ -299,14 +299,14 @@ export function drawPauseOverlay() {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 70px Segoe UI, Arial, sans-serif';
+    ctx.font = `bold ${s(70)}px Segoe UI, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('PAUSED', canvasWidth / 2, canvasHeight / 2 - 20);
+    ctx.fillText('PAUSED', canvasWidth / 2, canvasHeight / 2 - s(20));
 
-    ctx.font = '26px Segoe UI, Arial, sans-serif';
+    ctx.font = `${s(26)}px Segoe UI, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText('Press SPACE to resume', canvasWidth / 2, canvasHeight / 2 + 40);
+    ctx.fillText('Press SPACE to resume', canvasWidth / 2, canvasHeight / 2 + s(40));
   });
 }
 
@@ -316,17 +316,17 @@ export function drawEndScreen(title: string) {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 80px Segoe UI, Arial, sans-serif';
+    ctx.font = `bold ${s(80)}px Segoe UI, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(title, canvasWidth / 2, canvasHeight / 2 - 40);
+    ctx.fillText(title, canvasWidth / 2, canvasHeight / 2 - s(40));
 
-    ctx.font = '40px Segoe UI, Arial, sans-serif';
-    ctx.fillText(`Final Score: ${game.score}`, canvasWidth / 2, canvasHeight / 2 + 40);
+    ctx.font = `${s(40)}px Segoe UI, Arial, sans-serif`;
+    ctx.fillText(`Final Score: ${game.score}`, canvasWidth / 2, canvasHeight / 2 + s(40));
 
-    ctx.font = '24px Segoe UI, Arial, sans-serif';
+    ctx.font = `${s(24)}px Segoe UI, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText('Press SPACE to restart', canvasWidth / 2, canvasHeight / 2 + 100);
+    ctx.fillText('Press SPACE to restart', canvasWidth / 2, canvasHeight / 2 + s(100));
   });
 }
 

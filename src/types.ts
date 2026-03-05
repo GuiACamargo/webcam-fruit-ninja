@@ -74,4 +74,3 @@ export interface DurationBox {
   label: string;
   seconds: number;
 }
- 

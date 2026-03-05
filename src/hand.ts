@@ -1,5 +1,5 @@
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
-import { INDEX_FINGERTIP, PINCH_DISTANCE, THUMB_TIP } from './constants.ts';
+import { INDEX_FINGERTIP, PINCH_DISTANCE, s, THUMB_TIP } from './constants.ts';
 import { hand } from './state.ts';
 
 export async function createHandLandmarker(): Promise<HandLandmarker> {
@@ -51,7 +51,7 @@ export function isPinching(cw: number, ch: number): boolean {
   if (!hand.landmarks) return false;
   const dx = hand.landmarks[THUMB_TIP].x * cw - hand.landmarks[INDEX_FINGERTIP].x * cw;
   const dy = hand.landmarks[THUMB_TIP].y * ch - hand.landmarks[INDEX_FINGERTIP].y * ch;
-  return Math.sqrt(dx * dx + dy * dy) < PINCH_DISTANCE;
+  return Math.sqrt(dx * dx + dy * dy) < s(PINCH_DISTANCE);
 }
 
 export function getFingertipPos(cw: number, ch: number): { x: number; y: number } | null {

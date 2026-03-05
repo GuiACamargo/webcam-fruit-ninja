@@ -1,14 +1,22 @@
 export const INDEX_FINGERTIP = 8;
 export const THUMB_TIP = 4;
-export const GRAVITY = 1800;
-export const MIN_SLASH_VELOCITY = 400;
-export const SPAWN_INTERVAL = 1200;
-export const BOMB_CHANCE = 0.2;
 export const MAX_LIVES = 3;
-export const BOMB_RADIUS = 42;
-export const PINCH_DISTANCE = 40;
 export const TRAIL_MAX_LEN = 20;
 export const TRAIL_FADE_MS = 300;
+
+// Reference resolution — all pixel values are authored for this height
+const REF_HEIGHT = 720;
+
+// Scale factor: set once at init, used by s() to scale pixel values
+let _scale = 1;
+export function initScale(canvasHeight: number) { _scale = canvasHeight / REF_HEIGHT; }
+export function s(px: number): number { return px * _scale; }
+
+// These are reference values (at 720p) — always use s() when consuming them
+export const GRAVITY = 1800;
+export const MIN_SLASH_VELOCITY = 400;
+export const BOMB_RADIUS = 42;
+export const PINCH_DISTANCE = 40;
 
 export const FRUIT_COLORS = [
   '#e74c3c', '#f39c12', '#2ecc71',

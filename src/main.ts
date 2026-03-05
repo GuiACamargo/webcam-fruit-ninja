@@ -1,5 +1,5 @@
 import { initAudio, playWin } from './audio.ts';
-import { MAX_LIVES } from './constants.ts';
+import { MAX_LIVES, initScale } from './constants.ts';
 import { checkColorBoxes, checkDurationBoxes, checkSlashing, getSpawnInterval, spawnWave, updateAllEntities, updateEffectsOnly } from './entities.ts';
 import { createHandLandmarker, detectHand, getFingertipPos, isPinching, startWebcam, updateVelocity } from './hand.ts';
 import {
@@ -108,6 +108,7 @@ async function main() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
+  initScale(canvas.height);
   initRenderer(canvas);
   initAudio();
   initLivesHUD();

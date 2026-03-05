@@ -1,5 +1,5 @@
 import { playExplosion, playLose, playSlice } from './audio.ts';
-import { BOMB_RADIUS, FRUIT_COLORS, GRAVITY, MIN_SLASH_VELOCITY } from './constants.ts';
+import { BOMB_RADIUS, FRUIT_COLORS, GRAVITY, MIN_SLASH_VELOCITY, s } from './constants.ts';
 import { colorBoxes, durationBoxes, entities, game, hand } from './state.ts';
 
 // --- Difficulty scaling ---
@@ -24,7 +24,7 @@ function getSpawnInterval(): number { return lerp(1200, 500, getProgress()); }
 function getBombChance(): number { return lerp(0.10, 0.35, getProgress()); }
 function getLaunchSpeed(): { base: number; range: number } {
   const p = getProgress();
-  return { base: lerp(1000, 1300, p), range: lerp(500, 700, p) };
+  return { base: s(lerp(1000, 1300, p)), range: s(lerp(500, 700, p)) };
 }
 function getFruitsPerWave(): number {
   const p = getProgress();
@@ -39,13 +39,13 @@ function getFruitsPerWave(): number {
 
 export function spawnFruit(canvasW: number, canvasH: number) {
   const { base, range } = getLaunchSpeed();
-  const radius = 50 + Math.random() * 30;
+  const radius = s(50 + Math.random() * 30);
   const x = radius + Math.random() * (canvasW - radius * 2);
   const color = FRUIT_COLORS[Math.floor(Math.random() * FRUIT_COLORS.length)];
   entities.fruits.push({
     x,
     y: canvasH + radius,
-    vx: (Math.random() - 0.5) * 300,
+    vx: (Math.random() - 0.5) * s(300),
     vy: -(base + Math.random() * range),
     radius,
     color,
@@ -55,15 +55,15 @@ export function spawnFruit(canvasW: number, canvasH: number) {
 
 export function spawnBomb(canvasW: number, canvasH: number) {
   const { base, range } = getLaunchSpeed();
-  // Bombs launch a bit slower than fruits so they're distinguishable
   const speedMult = 0.85;
-  const x = BOMB_RADIUS + Math.random() * (canvasW - BOMB_RADIUS * 2);
+  const r = s(BOMB_RADIUS);
+  const x = r + Math.random() * (canvasW - r * 2);
   entities.bombs.push({
     x,
-    y: canvasH + BOMB_RADIUS,
-    vx: (Math.random() - 0.5) * 300,
+    y: canvasH + r,
+    vx: (Math.random() - 0.5) * s(300),
     vy: -(base * speedMult + Math.random() * range * speedMult),
-    radius: BOMB_RADIUS,
+    radius: r,
     hit: false,
     fuse: 0,
   });
@@ -91,14 +91,14 @@ export function sliceFruit(fruit: typeof entities.fruits[0]) {
   game.score++;
   playSlice();
 
-  const spreadVx = 120 + Math.random() * 80;
+  const spreadVx = s(120 + Math.random() * 80);
   for (let side = 0; side < 2; side++) {
     const dir = side === 0 ? -1 : 1;
     entities.fruitHalves.push({
       x: fruit.x,
       y: fruit.y,
       vx: fruit.vx + dir * spreadVx,
-      vy: fruit.vy - 50 - Math.random() * 100,
+      vy: fruit.vy - s(50) - Math.random() * s(100),
       radius: fruit.radius,
       color: fruit.color,
       angle: 0,
@@ -110,13 +110,13 @@ export function sliceFruit(fruit: typeof entities.fruits[0]) {
 
   for (let i = 0; i < 12; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = 100 + Math.random() * 300;
+    const speed = s(100 + Math.random() * 300);
     entities.particles.push({
       x: fruit.x,
       y: fruit.y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      radius: 2 + Math.random() * 4,
+      radius: s(2 + Math.random() * 4),
       color: fruit.color,
       alpha: 1,
       decay: 1.5 + Math.random() * 1.5,
@@ -138,19 +138,19 @@ export function hitBomb(bomb: typeof entities.bombs[0]) {
     y: bomb.y,
     age: 0,
     maxAge: 0.6,
-    maxRadius: 180,
+    maxRadius: s(180),
   });
 
   const fireColors = ['#ff4500', '#ff6600', '#ffaa00', '#ffcc00', '#333'];
   for (let i = 0; i < 30; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = 150 + Math.random() * 500;
+    const speed = s(150 + Math.random() * 500);
     entities.particles.push({
       x: bomb.x,
       y: bomb.y,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 100,
-      radius: 3 + Math.random() * 8,
+      vy: Math.sin(angle) * speed - s(100),
+      radius: s(3 + Math.random() * 8),
       color: fireColors[Math.floor(Math.random() * fireColors.length)],
       alpha: 1,
       decay: 1.2 + Math.random() * 1.5,
@@ -161,32 +161,35 @@ export function hitBomb(bomb: typeof entities.bombs[0]) {
 // --- Update functions ---
 
 export function updateFruits(dt: number, canvasH: number) {
+  const gravity = s(GRAVITY);
   for (let i = entities.fruits.length - 1; i >= 0; i--) {
     const f = entities.fruits[i];
     f.x += f.vx * dt;
     f.y += f.vy * dt;
-    f.vy += GRAVITY * dt;
+    f.vy += gravity * dt;
     if (f.y > canvasH + f.radius * 2 || f.sliced) entities.fruits.splice(i, 1);
   }
 }
 
 export function updateBombs(dt: number, canvasH: number) {
+  const gravity = s(GRAVITY);
   for (let i = entities.bombs.length - 1; i >= 0; i--) {
     const b = entities.bombs[i];
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    b.vy += GRAVITY * dt;
+    b.vy += gravity * dt;
     b.fuse += dt * 10;
     if (b.y > canvasH + b.radius * 2 || b.hit) entities.bombs.splice(i, 1);
   }
 }
 
 export function updateHalves(dt: number, canvasH: number) {
+  const gravity = s(GRAVITY);
   for (let i = entities.fruitHalves.length - 1; i >= 0; i--) {
     const h = entities.fruitHalves[i];
     h.x += h.vx * dt;
     h.y += h.vy * dt;
-    h.vy += GRAVITY * dt;
+    h.vy += gravity * dt;
     h.angle += h.angularVel * dt;
     h.alpha -= 0.8 * dt;
     if (h.alpha <= 0 || h.y > canvasH + h.radius * 2) entities.fruitHalves.splice(i, 1);
@@ -194,11 +197,12 @@ export function updateHalves(dt: number, canvasH: number) {
 }
 
 export function updateParticles(dt: number) {
+  const gravity = s(GRAVITY) * 0.5;
   for (let i = entities.particles.length - 1; i >= 0; i--) {
     const p = entities.particles[i];
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vy += GRAVITY * 0.5 * dt;
+    p.vy += gravity * dt;
     p.alpha -= p.decay * dt;
     if (p.alpha <= 0) entities.particles.splice(i, 1);
   }
@@ -228,18 +232,19 @@ export function updateEffectsOnly(dt: number, canvasH: number) {
 // --- Collision detection ---
 
 export function checkSlashing(tipX: number, tipY: number) {
-  if (hand.velocity < MIN_SLASH_VELOCITY) return;
+  if (hand.velocity < s(MIN_SLASH_VELOCITY)) return;
 
+  const grace = s(15);
   for (const fruit of entities.fruits) {
     if (fruit.sliced) continue;
     const dx = tipX - fruit.x, dy = tipY - fruit.y;
-    if (Math.sqrt(dx * dx + dy * dy) < fruit.radius + 15) sliceFruit(fruit);
+    if (Math.sqrt(dx * dx + dy * dy) < fruit.radius + grace) sliceFruit(fruit);
   }
 
   for (const bomb of entities.bombs) {
     if (bomb.hit) continue;
     const dx = tipX - bomb.x, dy = tipY - bomb.y;
-    if (Math.sqrt(dx * dx + dy * dy) < bomb.radius + 15) hitBomb(bomb);
+    if (Math.sqrt(dx * dx + dy * dy) < bomb.radius + grace) hitBomb(bomb);
   }
 }
 
