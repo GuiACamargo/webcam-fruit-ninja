@@ -179,8 +179,14 @@ async function main() {
 
   let pauseTime = 0;
   let pendingHandSwitch = false;
+  let demoMode = false;
 
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP') {
+      demoMode = !demoMode;
+      if (demoMode) hideHUD();
+      return;
+    }
     if (e.code === 'Space') {
       e.preventDefault();
       if (game.state === 'playing') {
@@ -222,6 +228,22 @@ async function main() {
     // Hand skeletons
     if (hand.visible && hand.landmarks) drawHandSkeleton(hand.landmarks);
     if (game.twoHands && hand.secondVisible && hand.secondLandmarks) drawHandSkeleton(hand.secondLandmarks);
+
+    // --- Demo mode: only webcam + hand tracking ---
+    if (demoMode) {
+      if (hand.visible && hand.landmarks) {
+        const pos = getFingertipPos(canvas.width, canvas.height);
+        if (pos) {
+          updateVelocity(pos.x, pos.y, now);
+          addTrailPoint(pos.x, pos.y, now);
+          drawFingertip(pos.x, pos.y);
+        }
+      }
+      drawTrail();
+      resetShake();
+      requestAnimationFrame(loop);
+      return;
+    }
 
     // --- State machine ---
     switch (game.state) {
