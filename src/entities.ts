@@ -18,7 +18,7 @@ function getSpawnInterval(): number { return lerp(1200, 500, getProgress()); }
 function getBombChance(): number { return lerp(0.10, 0.35, getProgress()); }
 function getLaunchSpeed(): { base: number; range: number } {
   const p = getProgress();
-  return { base: s(lerp(1000, 1300, p)), range: s(lerp(500, 700, p)) };
+  return { base: s(lerp(900, 1200, p)), range: s(lerp(450, 600, p)) };
 }
 function getFruitsPerWave(): number {
   const p = getProgress();

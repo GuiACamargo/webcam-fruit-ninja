@@ -18,12 +18,12 @@ let winSound: HTMLAudioElement;
 let loseSound: HTMLAudioElement;
 
 export function initAudio() {
-  slicePool = createPool('/sounds/slice.mp3', 0.1);
-  explosionPool = createPool('/sounds/explosion.mp3', 0.1);
+  slicePool = createPool('/sounds/slice.mp3', 0.05);
+  explosionPool = createPool('/sounds/explosion.mp3', 0.05);
   winSound = new Audio('/sounds/win.mp3');
-  winSound.volume = 0.3;
+  winSound.volume = 0.1;
   loseSound = new Audio('/sounds/lose.mp3');
-  loseSound.volume = 0.3;
+  loseSound.volume = 0.1;
 }
 
 export function playSlice() {
